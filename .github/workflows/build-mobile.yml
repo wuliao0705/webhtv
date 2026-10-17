@@ -65,9 +65,11 @@ jobs:
 
       - name: Collect artifacts
         run: |
+          echo "=== 查找所有 apk 输出 ==="
+          find app/build/outputs -name "*.apk" 2>/dev/null
           rm -rf dist
           mkdir -p dist
-          cp app/build/outputs/apk/mobile/arm64_v8a/release/*.apk dist/
+          find app/build/outputs -name "*.apk" -exec cp {} dist/ \;
           ls -lh dist/
 
       - name: Upload artifact
