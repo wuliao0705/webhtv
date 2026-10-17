@@ -1,0 +1,79 @@
+name: Build Mobile APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  TZ: Asia/Shanghai
+
+jobs:
+  build:
+    name: Build mobile arm64 APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Install Android packages
+        run: |
+          sdkmanager "platform-tools" "platforms;android-37.0" "build-tools;37.0.0"
+
+      - name: Generate release keystore
+        run: |
+          mkdir -p app/signing
+          keytool -genkeypair -v \
+            -keystore app/signing/release.jks \
+            -alias webhtv \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass webhtv123 \
+            -keypass webhtv123 \
+            -dname "CN=WebHTV, OU=TV, O=TV, L=TV, ST=TV, C=CN"
+          {
+            echo "storeFile=$GITHUB_WORKSPACE/app/signing/release.jks"
+            echo "keyAlias=webhtv"
+            echo "storePassword=webhtv123"
+            echo "keyPassword=webhtv123"
+          } > local.properties
+          echo "Release keystore generated"
+
+      - name: Build mobile arm64 release APK
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :app:assembleMobileArm64_v8aRelease --no-daemon
+
+      - name: Collect artifacts
+        run: |
+          rm -rf dist
+          mkdir -p dist
+          cp app/build/outputs/apk/mobile/arm64_v8a/release/*.apk dist/
+          ls -lh dist/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: webhtv-mobile-arm64
+          path: dist/*.apk
+          if-no-files-found: error
+          retention-days: 30
